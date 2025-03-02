@@ -61,6 +61,7 @@ find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(livox_ros_driver2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(glim REQUIRED)
 
 set(dependencies
   rclcpp
@@ -91,6 +92,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
 )
 ament_export_dependencies(rosidl_default_runtime)
+include_directories(
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+  ${glim_INCLUDE_DIRS}
+  ${PYTHON_INCLUDE_DIRS}
+)
 
 add_executable(fastlio_mapping 
   src/fastlio_mapping.cpp 
@@ -100,13 +108,21 @@ add_executable(fastlio_mapping
   src/IMU_Processing.cpp
 )
 
-target_include_directories(fastlio_mapping PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${PCL_INCLUDE_DIRS}
+
+add_library(glim_adapter SHARED 
+  src/glim_adapter.cpp
+  src/laserMapping.cpp 
+  include/ikd-Tree/ikd_Tree.cpp 
+  src/preprocess.cpp
+  src/IMU_Processing.cpp
 )
 
-target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
+target_link_libraries(glim_adapter glim::glim ${PYTHON_LIBRARIES} ${PCL_LIBRARIES} Eigen3::Eigen) 
+ament_target_dependencies(glim_adapter ${dependencies})
+
+message(STATUS "Glim: ${glim_INCLUDE_DIRS}")
+
+# target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
 target_link_libraries(fastlio_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} Eigen3::Eigen)
 
@@ -120,6 +136,7 @@ else()
   rosidl_get_typesupport_target(cpp_typesupport_target
     ${PROJECT_NAME} "rosidl_typesupport_cpp")
   target_link_libraries(fastlio_mapping ${cpp_typesupport_target})
+  target_link_libraries(glim_adapter ${cpp_typesupport_target})
 endif()
 
 ament_target_dependencies(fastlio_mapping ${dependencies})
@@ -127,6 +144,7 @@ ament_target_dependencies(fastlio_mapping ${dependencies})
 # ---------------- Install --------------- #
 install(TARGETS 
     fastlio_mapping
+    glim_adapter
   DESTINATION lib/${PROJECT_NAME}
 )
 
